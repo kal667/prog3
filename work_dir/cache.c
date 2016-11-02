@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
 
 #include "cache.h"
 #include "main.h"
@@ -95,22 +96,23 @@ void init_cache()
   /*number of zero bits in mask*/
   c1.index_mask_offset = LOG2(DEFAULT_CACHE_BLOCK_SIZE);
   /*number of valid entries in set*/
-  c1.set_contents = 1; /*for direct mapped*/
+  *c1.set_contents = 1; /*for direct mapped*/
 
   /*Allocate an arrary of cache line pointer*/
-  c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1->n_sets);
+  c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
   /*
   TODO: initialize each entry to NULL
   */
   int i;
-  for (i = 0; i < c1.n_sets; i++){
-    c1.LRU_head[i] = NULL;
+  for (i = 0; i < c1.n_sets; i++) {
+    c1.LRU_head[i]->dirty = 0;
+    c1.LRU_head[i]->tag = 0;
   }
 
   /*initialize cache statistics data structure*/
   
-  cache_stat_inst = NULL;
-  cache_stat_data = NULL;
+  cache_stat cache_stat_inst = {0};
+  cache_stat cache_stat_data = {0};
 
 }
 /************************************************************/
@@ -123,22 +125,21 @@ void perform_access(addr, access_type)
     /* handle an access to the cache */
 
     unsigned index = (addr & c1.index_mask) >> c1.index_mask_offset;
-
-    
+  
     /*data load*/
     if (access_type = TRACE_DATA_LOAD){
         /*cache hit*/
-        if (c1.LRU_head[index].tag == addr) {
+        if (c1.LRU_head[index]->tag == addr) {
 
         }
         /*cache miss on NULL*/
-        else if (c1.LRU_head[index].tag == NULL){
-            c1.LRU_head[index].tag = addr;
+        else if (c1.LRU_head[index]->tag == 0){
+            c1.LRU_head[index]->tag = addr;
             cache_stat_data.misses += 1;
         }
         /*cache miss*/
         else {
-            c1.LRU_head[index].tag = addr;
+            c1.LRU_head[index]->tag = addr;
             cache_stat_data.misses += 1;
         }
     }
@@ -146,17 +147,17 @@ void perform_access(addr, access_type)
     /*data store*/
     if (access_type = TRACE_DATA_STORE) {
         /*cache hit*/
-        if (c1.LRU_head[index].tag == addr) {
+        if (c1.LRU_head[index]->tag == addr) {
 
         }
         /*cache miss on NULL*/
-        else if (c1.LRU_head[index].tag == NULL) {
-            c1.LRU_head[index].tag = addr;
+        else if (c1.LRU_head[index]->tag == 0) {
+            c1.LRU_head[index]->tag = addr;
             cache_stat_data.misses += 1;
         }
         /*cache miss*/
         else {
-            c1.LRU_head[index].tag = addr;
+            c1.LRU_head[index]->tag = addr;
             cache_stat_data.misses += 1;
             cache_stat_data.replacements += 1;
         }
@@ -165,17 +166,17 @@ void perform_access(addr, access_type)
     /*instruction load*/
     if (access_type = TRACE_INST_LOAD) {
         /*cache hit*/
-        if (c1.LRU_head[index].tag == addr) {
+        if (c1.LRU_head[index]->tag == addr) {
 
         }
         /*cache miss on NULL*/
-        else if (c1.LRU_head[index].tag == NULL) {
-            c1.LRU_head[index].tag = addr;
+        else if (c1.LRU_head[index]->tag == 0) {
+            c1.LRU_head[index]->tag = addr;
             cache_stat_inst.misses += 1;
         }
         /*cache miss*/
         else {
-            c1.LRU_head[index].tag = addr;
+            c1.LRU_head[index]->tag = addr;
             cache_stat_inst.misses += 1;
             cache_stat_inst.replacements += 1;
         }
