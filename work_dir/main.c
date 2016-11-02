@@ -7,6 +7,7 @@
 
 
 #include <stdio.h>
+#include <string.h>
 #include "cache.h"
 #include "main.h"
 
@@ -123,8 +124,12 @@ void parse_args(argc, argv)
 
   dump_settings();
 
+  printf("Opening File\n");
+
   /* open the trace file */
   traceFile = fopen(argv[arg_index], "r");
+
+  printf("File Opened\n");
 
   return;
 }
