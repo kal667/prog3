@@ -85,41 +85,75 @@ void init_cache()
   /* initialize the cache, and cache statistics data structures */
 
   printf("Initializing cache\n");
+  int i;
 
   /*initialize cache data structure*/
-  /*cache size in words*/
-  c1.size = DEFAULT_CACHE_SIZE / WORD_SIZE;
-  /*cache associativity*/
-  printf("assoc\n");
-  c1.associativity = DEFAULT_CACHE_ASSOC; /*For direct mapped*/
-  /*number of cache sets*/
-  c1.n_sets = DEFAULT_CACHE_SIZE / DEFAULT_CACHE_BLOCK_SIZE;
-  /*mask to find cache index*/
-  c1.index_mask = (DEFAULT_CACHE_SIZE / DEFAULT_CACHE_BLOCK_SIZE - 1) << LOG2(DEFAULT_CACHE_BLOCK_SIZE);
-  /*number of zero bits in mask*/
-  c1.index_mask_offset = LOG2(DEFAULT_CACHE_BLOCK_SIZE);
-  /*number of valid entries in set*/
-  printf("set contents\n");
-  c1.set_contents = &cache_assoc; /*for direct mapped*/
-
-  printf("Allocating array\n");
-
-  /*Allocate an array of cache line pointer*/
-  c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
-  /*
-  TODO: initialize each entry to NULL
-  */
-  printf("Initializing array\n");
+    
+    if (cache_split == FALSE) {
+        /*cache size in words*/
+        c1.size = cache_usize / WORD_SIZE;
+        /*cache associativity*/
+        c1.associativity = cache_assoc; /*For direct mapped*/
+        /*number of cache sets*/
+        c1.n_sets = cache_usize / cache_block_size;
+        /*mask to find cache index*/
+        c1.index_mask = (cache_usize / cache_block_size - 1) << LOG2(cache_block_size);
+        /*number of zero bits in mask*/
+        c1.index_mask_offset = LOG2(cache_block_size);
+        /*number of valid entries in set*/
+        c1.set_contents = &cache_assoc; /*for direct mapped*/
+        /*Allocate an array of cache line pointer*/
+        c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
   
-  int i;
-  for (i = 0; i < c1.n_sets; i++) {
-    c1.LRU_head[i] = NULL;
-    /*c1.LRU_head[i]->dirty = 0;
-    c1.LRU_head[i]->tag = 0;*/
-    /*printf("Cleared %d\n",i );*/
-  }
+        for (i = 0; i < c1.n_sets; i++) {
+        c1.LRU_head[i] = NULL;
+        }
+    }
+
+    if (cache_split ==TRUE) {
+        
+        /*Instruction cache*/
+        /*cache size in words*/
+        c1.size = cache_isize / WORD_SIZE;
+        /*cache associativity*/
+        c1.associativity = cache_assoc; /*For direct mapped*/
+        /*number of cache sets*/
+        c1.n_sets = cache_isize / cache_block_size;
+        /*mask to find cache index*/
+        c1.index_mask = (cache_isize / cache_block_size - 1) << LOG2(cache_block_size);
+        /*number of zero bits in mask*/
+        c1.index_mask_offset = LOG2(cache_block_size);
+        /*number of valid entries in set*/
+        c1.set_contents = &cache_assoc; /*for direct mapped*/
+        /*Allocate an array of cache line pointer*/
+        c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
+ 
+        for (i = 0; i < c1.n_sets; i++) {
+        c1.LRU_head[i] = NULL;
+        }
+
+        /*Data Cache*/
+        /*cache size in words*/
+        c2.size = cache_dsize / WORD_SIZE;
+        /*cache associativity*/
+        c2.associativity = cache_assoc; /*For direct mapped*/
+        /*number of cache sets*/
+        c2.n_sets = cache_dsize / cache_block_size;
+        /*mask to find cache index*/
+        c2.index_mask = (cache_dsize / cache_block_size - 1) << LOG2(cache_block_size);
+        /*number of zero bits in mask*/
+        c2.index_mask_offset = LOG2(cache_block_size);
+        /*number of valid entries in set*/
+        c2.set_contents = &cache_assoc; /*for direct mapped*/
+        /*Allocate an array of cache line pointer*/
+        c2.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c2.n_sets);  
+        
+        for (i = 0; i < c2.n_sets; i++) {
+        c2.LRU_head[i] = NULL;
+        }
+    }
+  
   /*initialize cache statistics data structure*/
-  
   printf("Initializing cache stats\n");
   cache_stat cache_stat_inst = {0};
   cache_stat cache_stat_data = {0};
@@ -151,23 +185,46 @@ void perform_access(addr, access_type)
         /*printf("Data Load\n");*/
         cache_stat_data.accesses += 1;
 
-        /*cache miss on NULL*/
-        if (c1.LRU_head[index] == NULL){
-            c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
-            c1.LRU_head[index]->tag = addr_tag;
-            cache_stat_data.misses += 1;
-        }
-        
-        /*cache hit*/
-        else if (c1.LRU_head[index]->tag == addr_tag) {
+        if (cache_split == FALSE) {
+            /*cache miss on NULL*/
+            if (c1.LRU_head[index] == NULL){
+                c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+                c1.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+            }
+            
+            /*cache hit*/
+            else if (c1.LRU_head[index]->tag == addr_tag) {
 
+            }
+            
+            /*cache miss*/
+            else {
+                c1.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+                cache_stat_data.replacements += 1;
+            }
         }
-        
-        /*cache miss*/
+
         else {
-            c1.LRU_head[index]->tag = addr_tag;
-            cache_stat_data.misses += 1;
-            cache_stat_data.replacements += 1;
+            /*cache miss on NULL*/
+            if (c2.LRU_head[index] == NULL){
+                c2.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+                c2.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+            }
+            
+            /*cache hit*/
+            else if (c2.LRU_head[index]->tag == addr_tag) {
+
+            }
+            
+            /*cache miss*/
+            else {
+                c2.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+                cache_stat_data.replacements += 1;
+            }
         }
     }
 
@@ -176,23 +233,46 @@ void perform_access(addr, access_type)
         /*printf("Data store\n");*/
         cache_stat_data.accesses += 1;
         
-        /*cache miss on NULL*/
-        if (c1.LRU_head[index] == NULL){
-            c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
-            c1.LRU_head[index]->tag = addr_tag;
-            cache_stat_data.misses += 1;
-        }
-        
-        /*cache hit*/
-        else if (c1.LRU_head[index]->tag == addr_tag) {
+        if (cache_split == FALSE) {
+            /*cache miss on NULL*/
+            if (c1.LRU_head[index] == NULL){
+                c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+                c1.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+            }
+            
+            /*cache hit*/
+            else if (c1.LRU_head[index]->tag == addr_tag) {
 
+            }
+            
+            /*cache miss*/
+            else {
+                c1.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+                cache_stat_data.replacements += 1;
+            }
         }
-        
-        /*cache miss*/
+
         else {
-            c1.LRU_head[index]->tag = addr_tag;
-            cache_stat_data.misses += 1;
-            cache_stat_data.replacements += 1;
+            /*cache miss on NULL*/
+            if (c2.LRU_head[index] == NULL){
+                c2.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+                c2.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+            }
+            
+            /*cache hit*/
+            else if (c2.LRU_head[index]->tag == addr_tag) {
+
+            }
+            
+            /*cache miss*/
+            else {
+                c2.LRU_head[index]->tag = addr_tag;
+                cache_stat_data.misses += 1;
+                cache_stat_data.replacements += 1;
+            }
         }
     }
 
