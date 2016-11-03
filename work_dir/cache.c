@@ -104,7 +104,7 @@ void init_cache()
 
   printf("Allocating array\n");
 
-  /*Allocate an arrary of cache line pointer*/
+  /*Allocate an array of cache line pointer*/
   c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
   /*
   TODO: initialize each entry to NULL
@@ -135,47 +135,62 @@ void perform_access(addr, access_type)
 
     /* handle an access to the cache */
 
+/*
     printf("In perform access\n");
     printf("access type (%u)\n", access_type);
     printf("address (0x%x)\n", addr);
+    printf("index (%d) of (%d)\n", index, c1.n_sets);
+    printf("addr_tag (0x%x)\n", addr_tag);
+*/
+
     unsigned index = (addr & c1.index_mask) >> c1.index_mask_offset;
-    printf("index (%d)\n", index);
-  
+    unsigned addr_tag = addr >> (c1.index_mask_offset + LOG2(c1.n_sets));
+
     /*data load*/
     if (access_type == 0){
-        printf("Data Load\n");
+        /*printf("Data Load\n");*/
+        cache_stat_data.accesses += 1;
+
+        /*cache miss on NULL*/
+        if (c1.LRU_head[index] == NULL){
+            c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+            c1.LRU_head[index]->tag = addr_tag;
+            cache_stat_data.misses += 1;
+        }
+        
         /*cache hit*/
-        if (c1.LRU_head[index]->tag == addr) {
+        else if (c1.LRU_head[index]->tag == addr_tag) {
 
         }
-        /*cache miss on NULL*/
-        else if (c1.LRU_head[index]->tag == 0){
-            c1.LRU_head[index]->tag = addr;
-            cache_stat_data.misses += 1;
-        }
+        
         /*cache miss*/
         else {
-            c1.LRU_head[index]->tag = addr;
+            c1.LRU_head[index]->tag = addr_tag;
             cache_stat_data.misses += 1;
+            cache_stat_data.replacements += 1;
         }
     }
 
     /*data store*/
     if (access_type == 1) {
-        printf("Data store\n");
-
-        /*cache hit*/
-        if (c1.LRU_head[index]->tag == addr) {
-
-        }
+        /*printf("Data store\n");*/
+        cache_stat_data.accesses += 1;
+        
         /*cache miss on NULL*/
-        else if (c1.LRU_head[index]->tag == 0) {
-            c1.LRU_head[index]->tag = addr;
+        if (c1.LRU_head[index] == NULL){
+            c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+            c1.LRU_head[index]->tag = addr_tag;
             cache_stat_data.misses += 1;
         }
+        
+        /*cache hit*/
+        else if (c1.LRU_head[index]->tag == addr_tag) {
+
+        }
+        
         /*cache miss*/
         else {
-            c1.LRU_head[index]->tag = addr;
+            c1.LRU_head[index]->tag = addr_tag;
             cache_stat_data.misses += 1;
             cache_stat_data.replacements += 1;
         }
@@ -183,29 +198,28 @@ void perform_access(addr, access_type)
 
     /*instruction load*/
     if (access_type == 2) {
-        c1.LRU_head[index]->tag = 9;
-        printf("Instruction Load\n");
-
-        /*cache hit*/
-        if (c1.LRU_head[index]->tag == addr) {
-            printf("cache hit\n");
-        }
+        /*printf("Instruction Load\n");*/
+        cache_stat_inst.accesses += 1;
+        
         /*cache miss on NULL*/
-        else if (c1.LRU_head[index]->tag == 0) {
-            printf("cache miss on NULL\n");
-            c1.LRU_head[index]->tag = addr;
+        if (c1.LRU_head[index] == NULL) {
+            c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
+            c1.LRU_head[index]->tag = addr_tag;
             cache_stat_inst.misses += 1;
         }
+        
+        /*cache hit*/
+        else if (c1.LRU_head[index]->tag == addr_tag) {
+        }
+        
         /*cache miss*/
         else {
-            printf("cache miss\n");
-            c1.LRU_head[index]->tag = addr;
+            c1.LRU_head[index]->tag = addr_tag;
             cache_stat_inst.misses += 1;
             cache_stat_inst.replacements += 1;
         }
     }
 
-    printf("return\n");
     return;
 }
 /************************************************************/
