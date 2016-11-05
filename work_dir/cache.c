@@ -93,15 +93,15 @@ void init_cache()
         /*cache size in words*/
         c1.size = cache_usize / WORD_SIZE;
         /*cache associativity*/
-        c1.associativity = cache_assoc; /*For direct mapped*/
+        c1.associativity = cache_assoc;
         /*number of cache sets*/
-        c1.n_sets = cache_usize / cache_block_size;
+        c1.n_sets = cache_usize / (cache_block_size * cache_assoc);
         /*mask to find cache index*/
         c1.index_mask = (cache_usize / cache_block_size - 1) << LOG2(cache_block_size);
         /*number of zero bits in mask*/
         c1.index_mask_offset = LOG2(cache_block_size);
         /*number of valid entries in set*/
-        c1.set_contents = &cache_assoc; /*for direct mapped*/
+        c1.set_contents = (int *)malloc(sizeof(int)*c1.n_sets);
         /*Allocate an array of cache line pointer*/
         c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
   
@@ -116,15 +116,15 @@ void init_cache()
         /*cache size in words*/
         c1.size = cache_isize / WORD_SIZE;
         /*cache associativity*/
-        c1.associativity = cache_assoc; /*For direct mapped*/
+        c1.associativity = cache_assoc;
         /*number of cache sets*/
-        c1.n_sets = cache_isize / cache_block_size;
+        c1.n_sets = cache_isize / (cache_block_size * cache_assoc);
         /*mask to find cache index*/
         c1.index_mask = (cache_isize / cache_block_size - 1) << LOG2(cache_block_size);
         /*number of zero bits in mask*/
         c1.index_mask_offset = LOG2(cache_block_size);
         /*number of valid entries in set*/
-        c1.set_contents = &cache_assoc; /*for direct mapped*/
+        c1.set_contents = &cache_assoc;
         /*Allocate an array of cache line pointer*/
         c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
  
@@ -138,13 +138,13 @@ void init_cache()
         /*cache associativity*/
         c2.associativity = cache_assoc; /*For direct mapped*/
         /*number of cache sets*/
-        c2.n_sets = cache_dsize / cache_block_size;
+        c2.n_sets = cache_dsize / (cache_block_size * cache_assoc);
         /*mask to find cache index*/
         c2.index_mask = (cache_dsize / cache_block_size - 1) << LOG2(cache_block_size);
         /*number of zero bits in mask*/
         c2.index_mask_offset = LOG2(cache_block_size);
         /*number of valid entries in set*/
-        c2.set_contents = &cache_assoc; /*for direct mapped*/
+        c2.set_contents = &cache_assoc;
         /*Allocate an array of cache line pointer*/
         c2.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c2.n_sets);  
         
@@ -185,6 +185,7 @@ void perform_access(addr, access_type)
         /*printf("Data Load\n");*/
         cache_stat_data.accesses += 1;
 
+        /*Unified cache*/
         if (cache_split == FALSE) {
             /*cache miss on NULL*/
             if (c1.LRU_head[index] == NULL){
@@ -206,6 +207,7 @@ void perform_access(addr, access_type)
             }
         }
 
+        /*Split cache*/
         else {
             /*cache miss on NULL*/
             if (c2.LRU_head[index] == NULL){
@@ -233,6 +235,7 @@ void perform_access(addr, access_type)
         /*printf("Data store\n");*/
         cache_stat_data.accesses += 1;
         
+        /*Unified cache*/
         if (cache_split == FALSE) {
             /*cache miss on NULL*/
             if (c1.LRU_head[index] == NULL){
@@ -254,6 +257,7 @@ void perform_access(addr, access_type)
             }
         }
 
+        /*Split cache*/
         else {
             /*cache miss on NULL*/
             if (c2.LRU_head[index] == NULL){
