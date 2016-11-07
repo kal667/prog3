@@ -106,7 +106,8 @@ void init_cache()
         c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
   
         for (i = 0; i < c1.n_sets; i++) {
-        c1.LRU_head[i] = NULL;
+            c1.LRU_head[i] = NULL;
+            c1.set_contents[i] = 0;
         }
     }
 
@@ -124,12 +125,13 @@ void init_cache()
         /*number of zero bits in mask*/
         c1.index_mask_offset = LOG2(cache_block_size);
         /*number of valid entries in set*/
-        c1.set_contents = &cache_assoc;
+        c1.set_contents = (int *)malloc(sizeof(int)*c1.n_sets);
         /*Allocate an array of cache line pointer*/
         c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
  
         for (i = 0; i < c1.n_sets; i++) {
         c1.LRU_head[i] = NULL;
+        c1.set_contents[i] = 0;
         }
 
         /*Data Cache*/
@@ -144,12 +146,13 @@ void init_cache()
         /*number of zero bits in mask*/
         c2.index_mask_offset = LOG2(cache_block_size);
         /*number of valid entries in set*/
-        c2.set_contents = &cache_assoc;
+        c2.set_contents = (int *)malloc(sizeof(int)*c2.n_sets);
         /*Allocate an array of cache line pointer*/
         c2.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c2.n_sets);  
         
         for (i = 0; i < c2.n_sets; i++) {
         c2.LRU_head[i] = NULL;
+        c2.set_contents[i] = 0;
         }
     }
   
@@ -192,6 +195,8 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
                 c1.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
+                c1.set_contents[index] += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
             
             /*cache hit*/
@@ -204,6 +209,7 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
                 cache_stat_data.replacements += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
         }
 
@@ -214,6 +220,7 @@ void perform_access(addr, access_type)
                 c2.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
                 c2.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
             
             /*cache hit*/
@@ -226,6 +233,7 @@ void perform_access(addr, access_type)
                 c2.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
                 cache_stat_data.replacements += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
         }
     }
@@ -242,6 +250,7 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
                 c1.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
             
             /*cache hit*/
@@ -254,6 +263,7 @@ void perform_access(addr, access_type)
                 c1.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
                 cache_stat_data.replacements += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
         }
 
@@ -264,6 +274,7 @@ void perform_access(addr, access_type)
                 c2.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
                 c2.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
             
             /*cache hit*/
@@ -276,6 +287,7 @@ void perform_access(addr, access_type)
                 c2.LRU_head[index]->tag = addr_tag;
                 cache_stat_data.misses += 1;
                 cache_stat_data.replacements += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
             }
         }
     }
@@ -290,6 +302,7 @@ void perform_access(addr, access_type)
             c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
             c1.LRU_head[index]->tag = addr_tag;
             cache_stat_inst.misses += 1;
+            cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
         }
         
         /*cache hit*/
@@ -301,6 +314,7 @@ void perform_access(addr, access_type)
             c1.LRU_head[index]->tag = addr_tag;
             cache_stat_inst.misses += 1;
             cache_stat_inst.replacements += 1;
+            cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
         }
     }
 
