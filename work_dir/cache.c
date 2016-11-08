@@ -89,7 +89,7 @@ void init_cache()
 
   /*initialize cache data structure*/
     
-    if (cache_split == FALSE) {
+    if (cache_split == FALSE){
         /*cache size in words*/
         c1.size = cache_usize / WORD_SIZE;
         /*cache associativity*/
@@ -98,21 +98,8 @@ void init_cache()
         c1.n_sets = cache_usize / (cache_block_size * cache_assoc);
         /*mask to find cache index*/
         c1.index_mask = (cache_usize / cache_block_size - 1) << LOG2(cache_block_size);
-        /*number of zero bits in mask*/
-        c1.index_mask_offset = LOG2(cache_block_size);
-        /*number of valid entries in set*/
-        c1.set_contents = (int *)malloc(sizeof(int)*c1.n_sets);
-        /*Allocate an array of cache line pointer*/
-        c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
-  
-        for (i = 0; i < c1.n_sets; i++) {
-            c1.LRU_head[i] = NULL;
-            c1.set_contents[i] = 0;
-        }
     }
-
-    if (cache_split ==TRUE) {
-        
+    else if (cache_split == TRUE){
         /*Instruction cache*/
         /*cache size in words*/
         c1.size = cache_isize / WORD_SIZE;
@@ -122,17 +109,24 @@ void init_cache()
         c1.n_sets = cache_isize / (cache_block_size * cache_assoc);
         /*mask to find cache index*/
         c1.index_mask = (cache_isize / cache_block_size - 1) << LOG2(cache_block_size);
-        /*number of zero bits in mask*/
-        c1.index_mask_offset = LOG2(cache_block_size);
-        /*number of valid entries in set*/
-        c1.set_contents = (int *)malloc(sizeof(int)*c1.n_sets);
-        /*Allocate an array of cache line pointer*/
-        c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
- 
-        for (i = 0; i < c1.n_sets; i++) {
+
+    }
+    /*number of zero bits in mask*/
+    c1.index_mask_offset = LOG2(cache_block_size);
+    /*number of valid entries in set*/
+    c1.set_contents = (int *)malloc(sizeof(int)*c1.n_sets);
+    /*Allocate an array of cache line pointer*/
+    c1.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
+    c1.LRU_tail = (Pcache_line *)malloc(sizeof(Pcache_line)*c1.n_sets);
+
+    for (i = 0; i < c1.n_sets; i++) {
         c1.LRU_head[i] = NULL;
+        c1.LRU_tail[i] = NULL;
         c1.set_contents[i] = 0;
-        }
+    }
+
+
+    if (cache_split ==TRUE) {
 
         /*Data Cache*/
         /*cache size in words*/
@@ -149,9 +143,11 @@ void init_cache()
         c2.set_contents = (int *)malloc(sizeof(int)*c2.n_sets);
         /*Allocate an array of cache line pointer*/
         c2.LRU_head = (Pcache_line *)malloc(sizeof(Pcache_line)*c2.n_sets);  
+        c2.LRU_tail = (Pcache_line *)malloc(sizeof(Pcache_line)*c2.n_sets);  
         
         for (i = 0; i < c2.n_sets; i++) {
         c2.LRU_head[i] = NULL;
+        c2.LRU_tail[i] = NULL;
         c2.set_contents[i] = 0;
         }
     }
@@ -182,6 +178,10 @@ void perform_access(addr, access_type)
 
     unsigned index = (addr & c1.index_mask) >> c1.index_mask_offset;
     unsigned addr_tag = addr >> (c1.index_mask_offset + LOG2(c1.n_sets));
+
+    int i;
+    int hit_flag = FALSE;
+    Pcache_line temp;
 
     /*data load*/
     if (access_type == 0){
@@ -296,25 +296,69 @@ void perform_access(addr, access_type)
     if (access_type == 2) {
         /*printf("Instruction Load\n");*/
         cache_stat_inst.accesses += 1;
+        temp = *c1.LRU_head[index];
+
         
         /*cache miss on NULL*/
         if (c1.LRU_head[index] == NULL) {
             c1.LRU_head[index] = (Pcache_line *)malloc(sizeof(cache_line));
             c1.LRU_head[index]->tag = addr_tag;
+            c1.LRU_head[index]->dirty = 0;
+            c1.LRU_head[index]->LRU_next = NULL;
             cache_stat_inst.misses += 1;
             cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+            c1.set_contents[index] += 1;
         }
         
-        /*cache hit*/
-        else if (c1.LRU_head[index]->tag == addr_tag) {
-        }
-        
-        /*cache miss*/
-        else {
-            c1.LRU_head[index]->tag = addr_tag;
-            cache_stat_inst.misses += 1;
-            cache_stat_inst.replacements += 1;
-            cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+        else{
+            /*check all cache lines for a hit*/
+            for (i = 0; i < c1.set_contents[index]; i++){
+
+                /*cache hit*/
+                if (temp->tag == addr_tag) {
+                    hit_flag = TRUE;
+                    /*insert cache line at head*/
+                    delete(c1.LRU_head[index]; c1.LRU_tail[index]; temp)
+                    insert(c1.LRU_head[index]; c1.LRU_tail[index]; temp)
+                    break;
+                }
+
+                if (temp->LRU_next == NULL){
+                    break;
+                }
+
+                temp = temp->LRU_next;
+            }
+
+            /*cache miss*/
+            if (hit_flag == FALSE){
+                /*Insert cache Line if one is free*/
+                if (c1.set_contents < c1.associativity){
+                    temp->tag = addr_tag;
+                    tmep->LRU_next = NULL;
+                    cache_stat_inst.misses += 1;
+                    cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                    c1.set_contents[index] += 1;
+
+                    /*If cache line set is full then set tail*/
+                    if (c1.set_contents == c1.associativity){
+                        c1.LRU_tail[index] = (Pcache_line *)malloc(sizeof(cache_line));
+                        c1.LRU_tail[index] = temp;
+                    }
+
+                }
+                /*Else use LRU replacement policy*/
+                else if (c1.set_contents == c1.associativity){
+                    delete(c1.LRU_head[index]; c1.LRU_tail[index]; *c1.LRU_tail[index])
+                    insert(c1.LRU_head[index]; c1.LRU_tail[index]; *temp)
+                    /*set tail next to NULL*/
+                    c1.LRU_tail[index]->LRU_next = NULL;
+                    cache_stat_inst.misses += 1;
+                    cache_stat_inst.replacements += 1;
+                    cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                }
+                
+            }
         }
     }
 
