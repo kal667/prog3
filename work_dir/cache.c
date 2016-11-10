@@ -84,7 +84,7 @@ void init_cache()
   /* initialize the cache, and cache statistics data structures */
     //unified cache
     if(cache_split == 0) {
-        c1.size = cache_usize/4;    
+        c1.size = cache_usize / WORD_SIZE;    
         c1.associativity = cache_assoc;
         c1.n_sets = cache_usize/cache_block_size/cache_assoc;
         c1.index_mask = (c1.n_sets-1) << LOG2(cache_block_size);
@@ -105,7 +105,7 @@ void init_cache()
     //split cache
     else {
         //I-cache initialization
-        c1.size = cache_isize/4;
+        c1.size = cache_isize / WORD_SIZE;
         c1.associativity = cache_assoc;
         c1.n_sets = cache_isize/cache_block_size/cache_assoc;
         c1.index_mask = (c1.n_sets-1) << LOG2(cache_block_size);
@@ -124,7 +124,7 @@ void init_cache()
         }
         
         //D-cache initialization
-        c2.size = cache_dsize/4;
+        c2.size = cache_dsize / WORD_SIZE;
         c2.associativity = cache_assoc;
         c2.n_sets = cache_dsize/cache_block_size/cache_assoc;
         c2.index_mask = (c2.n_sets-1) << LOG2(cache_block_size);
@@ -248,7 +248,7 @@ void perform_access(addr, access_type)
 
                         //Write dirty block to memory
                         if (temp->dirty == TRUE){
-                            cache_stat_data.copies_back += cache_block_size/4;
+                            cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
                         }
 
                         delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
@@ -340,7 +340,7 @@ void perform_access(addr, access_type)
 
                         //Write dirty block to memory
                         if (temp->dirty == TRUE){
-                            cache_stat_data.copies_back += cache_block_size/4;
+                            cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
                         }
 
                         delete(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
@@ -455,7 +455,7 @@ void perform_access(addr, access_type)
 
                             //Write dirty block to memory
                             if (temp->dirty == TRUE){
-                                cache_stat_data.copies_back += cache_block_size/4;
+                                cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
                             }
 
                             delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
@@ -562,7 +562,7 @@ void perform_access(addr, access_type)
 
                             //Write dirty block to memory
                             if (temp->dirty == TRUE){
-                                cache_stat_data.copies_back += cache_block_size/4;
+                                cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
                             }
 
                             delete(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
@@ -667,7 +667,7 @@ void perform_access(addr, access_type)
 
                     //Write dirty block to memory
                     if (temp->dirty == TRUE){
-                        cache_stat_inst.copies_back += cache_block_size/4;
+                        cache_stat_inst.copies_back += (cache_block_size / WORD_SIZE);
                     }
 
                     delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
@@ -702,7 +702,7 @@ void flush()
         if(c1.LRU_head[i] != NULL) {
             for(flush_line = c1.LRU_head[i]; flush_line != c1.LRU_tail[i]->LRU_next; flush_line = flush_line->LRU_next) {
                 if(flush_line != NULL && flush_line->dirty == TRUE) {
-                    cache_stat_inst.copies_back += cache_block_size/4;
+                    cache_stat_inst.copies_back += (cache_block_size / WORD_SIZE);
                 }
             }
         }
@@ -714,7 +714,7 @@ void flush()
         if(c2.LRU_head[i] != NULL) {
             for(flush_line = c2.LRU_head[i]; flush_line != c2.LRU_tail[i]->LRU_next; flush_line = flush_line->LRU_next) {
                 if(flush_line != NULL && flush_line->dirty == TRUE) {
-                    cache_stat_data.copies_back += cache_block_size/4;
+                    cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
                 }
             }
         }
