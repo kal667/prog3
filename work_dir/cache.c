@@ -151,8 +151,30 @@ void perform_access(addr, access_type)
 
     /* handle an access to the cache */
 
-    unsigned index = (addr & c1.index_mask) >> c1.index_mask_offset;
-    unsigned addr_tag = addr >> (c1.index_mask_offset + LOG2(c1.n_sets));
+    //unified cache
+    if(cache_split == FALSE) {
+        access_cache(c1, addr, access_type);
+    }
+    //split cache
+    else {
+        if(access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE) {
+            access_cache(c2, addr, access_type);
+        }
+        else if(access_type == TRACE_INST_LOAD) {
+            access_cache(c1, addr, access_type);
+        }
+    }
+}
+/************************************************************/
+
+/************************************************************/
+void access_cache(c, addr, access_type)
+  cache c;
+  unsigned addr, access_type;
+{
+
+    unsigned index = (addr & c.index_mask) >> c.index_mask_offset;
+    unsigned addr_tag = addr >> (c.index_mask_offset + LOG2(c.n_sets));
 
     int i;
     int hit_flag;
@@ -166,528 +188,159 @@ void perform_access(addr, access_type)
     printf("addr_tag (0x%x)\n", addr_tag);
 */
 
-    /*data load*/
-    if (access_type == 0){
+    hit_flag = FALSE;
 
-        hit_flag = FALSE;
-
-        //printf("Data Load\n");
+    /*Access stats */
+    if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
         cache_stat_data.accesses += 1;
-
-        /*Unified cache*/
-        if (cache_split == FALSE) {
-            /*cache miss on NULL*/
-        
-            /*cache miss on NULL*/
-            if (c1.LRU_head[index] == NULL) {
-                //printf("Cache miss on NULL\n");
-
-                temp = (Pcache_line *)malloc(sizeof(cache_line));
-                temp->tag = addr_tag;
-                temp->dirty = FALSE;
-                temp->LRU_prev = NULL;
-                temp->LRU_next = NULL;
-
-                c1.LRU_head[index] = temp;
-                c1.LRU_tail[index] = temp;
-
-                cache_stat_data.misses += 1;
-                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                c1.set_contents[index] += 1;
-            }
-            
-            else {
-                /*check all occupied cache lines for a hit*/
-                
-                temp = c1.LRU_head[index];
-
-                for (i = 0; i < c1.set_contents[index]; i++){
-
-                    /*cache hit*/
-                    if (temp->tag == addr_tag) {
-                        /*printf("cache hit\n");*/
-                        hit_flag = TRUE;
-
-                        /*insert cache line at head*/
-                        if (c1.set_contents[index] > 1){
-                            delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                            insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                        }
-                        break;
-                    }
-
-                    /*we've reached the tail*/
-                    if (temp->LRU_next == NULL) {
-                        break;
-                    }
-
-                    temp = temp->LRU_next;
-                }
-
-                /*cache miss*/
-                if (hit_flag == FALSE){
-                    //printf("Cache miss\n");
-
-                    /*Insert cache Line if one is free*/
-                    if (c1.set_contents[index] < c1.associativity){
-
-                        temp = (Pcache_line *)malloc(sizeof(cache_line));
-                        temp->tag = addr_tag;
-                        temp->dirty  = FALSE;
-
-                        insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                        
-                        cache_stat_data.misses += 1;
-                        cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                        c1.set_contents[index] += 1;
-
-                    }
-                    /*Else use LRU replacement policy*/
-                    else if (c1.set_contents[index] == c1.associativity){
-                        //printf("set full\n");
-
-                        //Write dirty block to memory
-                        if (temp->dirty == TRUE){
-                            cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
-                        }
-
-                        delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-
-                        temp = (Pcache_line *)malloc(sizeof(cache_line));
-                        temp->tag = addr_tag;
-                        temp->dirty  = FALSE;
-                        
-                        insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                        
-                        cache_stat_data.misses += 1;
-                        cache_stat_data.replacements += 1;
-                        cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                    }  
-                }
-            }
-        }
-
-        /*Split cache*/
-        else {
-        
-            /*cache miss on NULL*/
-            if (c2.LRU_head[index] == NULL) {
-                //printf("Cache miss on NULL\n");
-
-                temp = (Pcache_line *)malloc(sizeof(cache_line));
-                temp->tag = addr_tag;
-                temp->dirty = FALSE;
-                temp->LRU_prev = NULL;
-                temp->LRU_next = NULL;
-
-                c2.LRU_head[index] = temp;
-                c2.LRU_tail[index] = temp;
-
-                cache_stat_data.misses += 1;
-                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                c2.set_contents[index] += 1;
-            }
-            
-            else{
-                /*check all occupied cache lines for a hit*/
-                
-                temp = c2.LRU_head[index];
-
-                for (i = 0; i < c2.set_contents[index]; i++){
-
-                    /*cache hit*/
-                    if (temp->tag == addr_tag) {
-                        /*printf("cache hit\n");*/
-                        hit_flag = TRUE;
-
-                        /*insert cache line at head*/
-                        if (c2.set_contents[index] > 1){
-                            delete(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                            insert(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                        }
-                        break;
-                    }
-
-                    /*we've reached the tail*/
-                    if (temp->LRU_next == NULL) {
-                        break;
-                    }
-
-                    temp = temp->LRU_next;
-                }
-
-                /*cache miss*/
-                if (hit_flag == FALSE){
-                    //printf("Cache miss\n");
-
-                    /*Insert cache Line if one is free*/
-                    if (c2.set_contents[index] < c2.associativity){
-
-                        temp = (Pcache_line *)malloc(sizeof(cache_line));
-                        temp->tag = addr_tag;
-                        temp->dirty  = FALSE;
-                        
-                        insert(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                        
-                        cache_stat_data.misses += 1;
-                        cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                        c2.set_contents[index] += 1;
-
-                    }
-                    /*Else use LRU replacement policy*/
-                    else if (c2.set_contents[index] == c2.associativity){
-                        /*printf("set full\n");*/
-
-                        //Write dirty block to memory
-                        if (temp->dirty == TRUE){
-                            cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
-                        }
-
-                        delete(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-
-                        temp = (Pcache_line *)malloc(sizeof(cache_line));
-                        temp->tag = addr_tag;
-                        temp->dirty  = FALSE;
-                        
-                        insert(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                        
-                        cache_stat_data.misses += 1;
-                        cache_stat_data.replacements += 1;
-                        cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                    }  
-                }
-            }
-        }
-    }
-
-    /*data store*/
-    if (access_type == 1) {
-        
-        hit_flag = FALSE;
-
         //Write through
-        if (cache_writeback == FALSE) {
+        if (access_type == TRACE_DATA_STORE && cache_writeback == FALSE) {
             cache_stat_data.copies_back += 1;
         }
-
-        //printf("Data store\n");
-        cache_stat_data.accesses += 1;
+    }
+    else if(access_type == TRACE_INST_LOAD) {
+        cache_stat_inst.accesses += 1;
+    }
         
-        /*Unified cache*/
-        if (cache_split == FALSE) {
-            /*cache miss on NULL*/
-            if (c1.LRU_head[index] == NULL){
-                
-                if (cache_writealloc == TRUE) {
-                    temp = (Pcache_line *)malloc(sizeof(cache_line));
-                    temp->tag = addr_tag;
-                    temp->dirty = TRUE;
-                    temp->LRU_prev = NULL;
-                    temp->LRU_next = NULL;
+    /*cache miss on NULL*/
+    if (c.LRU_head[index] == NULL) {
+        //printf("Cache miss on NULL\n");
 
-                    c1.LRU_head[index] = temp;
-                    c1.LRU_tail[index] = temp;
-
-                    cache_stat_data.misses += 1;
-                    cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                    c1.set_contents[index] += 1;
-                }
-
-                //WNA
-                else{
-                    cache_stat_data.misses += 1;
-                    cache_stat_data.copies_back += 1;
-                }
-
-            }
-            
-            else{
-                /*check all occupied cache lines for a hit*/
-                
-                temp = c1.LRU_head[index];
-
-                for (i = 0; i < c1.set_contents[index]; i++){
-
-                    /*cache hit*/
-                    if (temp->tag == addr_tag) {
-                        /*printf("cache hit\n");*/
-                        hit_flag = TRUE;
-
-                        /*insert cache line at head*/
-                        if (c1.set_contents[index] > 1){
-                            delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                            temp->dirty = TRUE;
-                            insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                        }
-                        break;
-                    }
-
-                    /*we've reached the tail*/
-                    if (temp->LRU_next == NULL) {
-                        break;
-                    }
-
-                    temp = temp->LRU_next;
-                }
-
-                /*cache miss*/
-                if (hit_flag == FALSE){
-                    /*printf("Cache miss\n");*/
-
-                    if (cache_writealloc == TRUE) {
-                        /*Insert cache Line if one is free*/
-                        if (c1.set_contents[index] < c1.associativity){
-
-                            temp = (Pcache_line *)malloc(sizeof(cache_line));
-                            temp->tag = addr_tag;
-                            temp->dirty  = TRUE;
-                            
-                            insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                            
-                            cache_stat_data.misses += 1;
-                            cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                            c1.set_contents[index] += 1;
-
-                        }
-                        /*Else use LRU replacement policy*/
-                        else if (c1.set_contents[index] == c1.associativity){
-                            /*printf("set full\n");*/
-
-                            //Write dirty block to memory
-                            if (temp->dirty == TRUE){
-                                cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
-                            }
-
-                            delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-
-                            temp = (Pcache_line *)malloc(sizeof(cache_line));
-                            temp->tag = addr_tag;
-                            temp->dirty  = TRUE;
-                            
-                            insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                            
-                            cache_stat_data.misses += 1;
-                            cache_stat_data.replacements += 1;
-                            cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                        }
-                    }
-
-                    //WNA
-                    else{
-                        cache_stat_data.misses += 1;
-                        cache_stat_data.copies_back += 1;
-                    } 
-                }
-            }
+        temp = (Pcache_line *)malloc(sizeof(cache_line));
+        temp->tag = addr_tag;
+        temp->LRU_prev = NULL;
+        temp->LRU_next = NULL;
+        if (access_type == TRACE_DATA_LOAD || access_type == TRACE_INST_LOAD){
+            temp->dirty = FALSE;
+        }
+        else if(access_type == TRACE_DATA_STORE){
+            temp->dirty = TRUE; 
         }
 
-        /*Split cache*/
-        else {
-            /*cache miss on NULL*/
-            if (c2.LRU_head[index] == NULL){
-                
-                if (cache_writealloc == TRUE) {
-                    temp = (Pcache_line *)malloc(sizeof(cache_line));
-                    temp->tag = addr_tag;
-                    temp->dirty = TRUE;
-                    temp->LRU_prev = NULL;
-                    temp->LRU_next = NULL;
+        c.LRU_head[index] = temp;
+        c.LRU_tail[index] = temp;
 
-                    c2.LRU_head[index] = temp;
-                    c2.LRU_tail[index] = temp;
-
-                    cache_stat_data.misses += 1;
-                    cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                    c2.set_contents[index] += 1;
-                }
-
-                //WNA
-                else{
-                    cache_stat_data.misses += 1;
-                    cache_stat_data.copies_back += 1;
-                }
+        if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
+            //WNA
+            if (access_type == TRACE_DATA_STORE && cache_writealloc == FALSE){
+                cache_stat_data.misses += 1;
+                cache_stat_data.copies_back += 1;
             }
-            
             else{
-                /*check all occupied cache lines for a hit*/
-                
-                temp = c2.LRU_head[index];
-
-                for (i = 0; i < c2.set_contents[index]; i++){
-
-                    /*cache hit*/
-                    if (temp->tag == addr_tag) {
-                        /*printf("cache hit\n");*/
-                        hit_flag = TRUE;
-
-                        /*insert cache line at head*/
-                        if (c2.set_contents[index] > 1){
-                            delete(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                            temp->dirty = TRUE;
-                            insert(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                        }
-                        break;
-                    }
-
-                    /*we've reached the tail*/
-                    if (temp->LRU_next == NULL) {
-                        break;
-                    }
-
-                    temp = temp->LRU_next;
-                }
-
-                /*cache miss*/
-                if (hit_flag == FALSE){
-                    /*printf("Cache miss\n");*/
-
-                    if (cache_writealloc == TRUE) {
-                        /*Insert cache Line if one is free*/
-                        if (c2.set_contents[index] < c2.associativity){
-
-                            temp = (Pcache_line *)malloc(sizeof(cache_line));
-                            temp->tag = addr_tag;
-                            temp->dirty  = TRUE;
-                            
-                            insert(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                            
-                            cache_stat_data.misses += 1;
-                            cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                            c2.set_contents[index] += 1;
-
-                        }
-                        /*Else use LRU replacement policy*/
-                        else if (c2.set_contents[index] == c2.associativity){
-                            /*printf("set full\n");*/
-
-                            //Write dirty block to memory
-                            if (temp->dirty == TRUE){
-                                cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
-                            }
-
-                            delete(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-
-                            temp = (Pcache_line *)malloc(sizeof(cache_line));
-                            temp->tag = addr_tag;
-                            temp->dirty  = TRUE;
-                            
-                            insert(&c2.LRU_head[index], &c2.LRU_tail[index], temp);
-                            
-                            cache_stat_data.misses += 1;
-                            cache_stat_data.replacements += 1;
-                            cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                        }  
-                    }
-
-                    //WNA
-                    else {
-                        cache_stat_data.misses += 1;
-                        cache_stat_data.copies_back += 1;
-                    }
-                }
+                cache_stat_data.misses += 1;
+                cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                c.set_contents[index] += 1;
             }
-        }       
-    }
-
-    /*instruction load*/
-    if (access_type == 2) {
-
-        hit_flag = FALSE;
-        
-        //printf("Instruction Load\n");
-        cache_stat_inst.accesses += 1;
-                
-        /*cache miss on NULL*/
-        if (c1.LRU_head[index] == NULL) {
-            /*printf("Cache miss on NULL\n");*/
-
-            temp = (Pcache_line *)malloc(sizeof(cache_line));
-            temp->tag = addr_tag;
-            temp->dirty = FALSE;
-            temp->LRU_prev = NULL;
-            temp->LRU_next = NULL;
-
-            c1.LRU_head[index] = temp;
-            c1.LRU_tail[index] = temp;
-
+        }
+        else if(access_type == TRACE_INST_LOAD) {
             cache_stat_inst.misses += 1;
             cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-            c1.set_contents[index] += 1;
+            c.set_contents[index] += 1;
         }
+    }
+    
+    /*Else, check all occupied cache lines for a hit*/
+    else {
         
-        else{
-            /*check all occupied cache lines for a hit*/
-            /*printf("Checking occupied cache lines\n");*/
-            
-            temp = c1.LRU_head[index];
+        temp = c.LRU_head[index];
+        for (i = 0; i < c.set_contents[index]; i++){
 
-            for (i = 0; i < c1.set_contents[index]; i++){
+            /*cache hit*/
+            if (temp->tag == addr_tag) {
+                /*printf("cache hit\n");*/
+                hit_flag = TRUE;
 
-                /*cache hit*/
-                if (temp->tag == addr_tag) {
-                    /*printf("cache hit\n");*/
-                    hit_flag = TRUE;
-
-                    /*insert cache line at head*/
-                    if (c1.set_contents[index] > 1){
-                        delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                        insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
-                    }
-                    break;
+                /*insert cache line at head*/
+                if (c.set_contents[index] > 1){
+                    delete(&c.LRU_head[index], &c.LRU_tail[index], temp);
+                    insert(&c.LRU_head[index], &c.LRU_tail[index], temp);
                 }
-
-                /*we've reached the tail*/
-                if (temp->LRU_next == NULL) {
-                    break;
-                }
-
-                temp = temp->LRU_next;
+                break;
             }
 
-            /*cache miss*/
-            if (hit_flag == FALSE){
-                /*printf("Cache miss\n");*/
+            /*we've reached the tail*/
+            if (temp->LRU_next == NULL) {
+                break;
+            }
 
+            temp = temp->LRU_next;
+        }
+
+        /*cache miss*/
+        if (hit_flag == FALSE){
+            //printf("Cache miss\n");
+
+            //WNA
+            if (access_type == TRACE_DATA_STORE && cache_writealloc ==FALSE){
+                cache_stat_data.misses += 1;
+                cache_stat_data.copies_back += 1;
+            }
+            else{
                 /*Insert cache Line if one is free*/
-                if (c1.set_contents[index] < c1.associativity){
+                if (c.set_contents[index] < c.associativity){
 
                     temp = (Pcache_line *)malloc(sizeof(cache_line));
                     temp->tag = addr_tag;
-                    temp->dirty  = FALSE;
-                    
+                    if (access_type == TRACE_DATA_LOAD || access_type == TRACE_INST_LOAD){
+                        temp->dirty = FALSE;
+                    }
+                    else if(access_type == TRACE_DATA_STORE){
+                        temp->dirty = TRUE; 
+                    }
+
                     insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
                     
-                    cache_stat_inst.misses += 1;
-                    cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                    c1.set_contents[index] += 1;
+                    if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
+                        cache_stat_data.misses += 1;
+                        cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                        c.set_contents[index] += 1;
+                    }
+                    else if(access_type == TRACE_INST_LOAD) {
+                        cache_stat_inst.misses += 1;
+                        cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                        c.set_contents[index] += 1;
+                    }
 
                 }
                 /*Else use LRU replacement policy*/
-                else if (c1.set_contents[index] == c1.associativity){
+                else if (c.set_contents[index] == c.associativity){
+                    //printf("set full\n");
 
                     //Write dirty block to memory
                     if (temp->dirty == TRUE){
-                        cache_stat_inst.copies_back += (cache_block_size / WORD_SIZE);
+                        cache_stat_data.copies_back += words_per_block;
                     }
 
-                    delete(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
+                    delete(&c.LRU_head[index], &c.LRU_tail[index], temp);
 
                     temp = (Pcache_line *)malloc(sizeof(cache_line));
                     temp->tag = addr_tag;
-                    temp->dirty  = FALSE;
+                    if (access_type == TRACE_DATA_LOAD || access_type == TRACE_INST_LOAD){
+                        temp->dirty = FALSE;
+                    }
+                    else if(access_type == TRACE_DATA_STORE){
+                        temp->dirty = TRUE; 
+                    }
                     
-                    insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
+                    insert(&c.LRU_head[index], &c.LRU_tail[index], temp);
                     
-                    cache_stat_inst.misses += 1;
-                    cache_stat_inst.replacements += 1;
-                    cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                }  
+                    if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
+                        cache_stat_data.misses += 1;
+                        cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                        c.set_contents[index] += 1;
+                    }
+                    else if(access_type == TRACE_INST_LOAD) {
+                        cache_stat_inst.misses += 1;
+                        cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                        c.set_contents[index] += 1;
+                    }
+                }
             }
         }
     }
-
     return;
 }
+
 /************************************************************/
 
 /************************************************************/
@@ -702,7 +355,7 @@ void flush()
         if(c1.LRU_head[i] != NULL) {
             for(flush_line = c1.LRU_head[i]; flush_line != c1.LRU_tail[i]->LRU_next; flush_line = flush_line->LRU_next) {
                 if(flush_line != NULL && flush_line->dirty == TRUE) {
-                    cache_stat_inst.copies_back += (cache_block_size / WORD_SIZE);
+                    cache_stat_inst.copies_back += words_per_block;
                 }
             }
         }
@@ -714,7 +367,7 @@ void flush()
         if(c2.LRU_head[i] != NULL) {
             for(flush_line = c2.LRU_head[i]; flush_line != c2.LRU_tail[i]->LRU_next; flush_line = flush_line->LRU_next) {
                 if(flush_line != NULL && flush_line->dirty == TRUE) {
-                    cache_stat_data.copies_back += (cache_block_size / WORD_SIZE);
+                    cache_stat_data.copies_back += words_per_block;
                 }
             }
         }

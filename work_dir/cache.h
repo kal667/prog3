@@ -69,7 +69,7 @@ void insert();
 void dump_settings();
 void print_stats();
 
-//void accesses_cache(cache c, unsigned addr, unsigned access_type);
+void access_cache();
 
 
 /* macros */
