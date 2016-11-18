@@ -206,36 +206,36 @@ void access_cache(c, addr, access_type)
     if (c.LRU_head[index] == NULL) {
         //printf("Cache miss on NULL\n");
 
-        temp = (Pcache_line *)malloc(sizeof(cache_line));
-        temp->tag = addr_tag;
-        temp->LRU_prev = NULL;
-        temp->LRU_next = NULL;
-        if (access_type == TRACE_DATA_LOAD || access_type == TRACE_INST_LOAD){
-            temp->dirty = FALSE;
+        //WNA
+        if (access_type == TRACE_DATA_STORE && cache_writealloc == FALSE){
+            cache_stat_data.misses += 1;
+            cache_stat_data.copies_back += 1;
         }
-        else if(access_type == TRACE_DATA_STORE){
-            temp->dirty = TRUE; 
-        }
-
-        c.LRU_head[index] = temp;
-        c.LRU_tail[index] = temp;
-
-        if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
-            //WNA
-            if (access_type == TRACE_DATA_STORE && cache_writealloc == FALSE){
-                cache_stat_data.misses += 1;
-                cache_stat_data.copies_back += 1;
+        else{
+            temp = (Pcache_line *)malloc(sizeof(cache_line));
+            temp->tag = addr_tag;
+            temp->LRU_prev = NULL;
+            temp->LRU_next = NULL;
+            if (access_type == TRACE_DATA_LOAD || access_type == TRACE_INST_LOAD){
+                temp->dirty = FALSE;
             }
-            else{
+            else if(access_type == TRACE_DATA_STORE){
+                temp->dirty = TRUE; 
+            }
+
+            c.LRU_head[index] = temp;
+            c.LRU_tail[index] = temp;
+
+            if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
                 cache_stat_data.misses += 1;
                 cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
                 c.set_contents[index] += 1;
             }
-        }
-        else if(access_type == TRACE_INST_LOAD) {
-            cache_stat_inst.misses += 1;
-            cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-            c.set_contents[index] += 1;
+            else if(access_type == TRACE_INST_LOAD) {
+                cache_stat_inst.misses += 1;
+                cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
+                c.set_contents[index] += 1;
+            }
         }
     }
     
@@ -244,12 +244,10 @@ void access_cache(c, addr, access_type)
         
         temp = c.LRU_head[index];
         for (i = 0; i < c.set_contents[index]; i++){
-
             /*cache hit*/
             if (temp->tag == addr_tag) {
-                /*printf("cache hit\n");*/
+                //printf("cache hit\n");
                 hit_flag = TRUE;
-
                 /*insert cache line at head*/
                 if (c.set_contents[index] > 1){
                     delete(&c.LRU_head[index], &c.LRU_tail[index], temp);
@@ -257,27 +255,27 @@ void access_cache(c, addr, access_type)
                 }
                 break;
             }
-
             /*we've reached the tail*/
             if (temp->LRU_next == NULL) {
                 break;
             }
-
             temp = temp->LRU_next;
         }
 
         /*cache miss*/
         if (hit_flag == FALSE){
             //printf("Cache miss\n");
+            //printf("Set contents (%d)\n", c.set_contents[index]);
 
             //WNA
-            if (access_type == TRACE_DATA_STORE && cache_writealloc ==FALSE){
+            if (access_type == TRACE_DATA_STORE && cache_writealloc == FALSE){
                 cache_stat_data.misses += 1;
                 cache_stat_data.copies_back += 1;
             }
             else{
                 /*Insert cache Line if one is free*/
                 if (c.set_contents[index] < c.associativity){
+                    //printf("set free\n");
 
                     temp = (Pcache_line *)malloc(sizeof(cache_line));
                     temp->tag = addr_tag;
@@ -288,7 +286,7 @@ void access_cache(c, addr, access_type)
                         temp->dirty = TRUE; 
                     }
 
-                    insert(&c1.LRU_head[index], &c1.LRU_tail[index], temp);
+                    insert(&c.LRU_head[index], &c.LRU_tail[index], temp);
                     
                     if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
                         cache_stat_data.misses += 1;
@@ -315,10 +313,8 @@ void access_cache(c, addr, access_type)
 
                     temp = (Pcache_line *)malloc(sizeof(cache_line));
                     temp->tag = addr_tag;
-                    if (access_type == TRACE_DATA_LOAD || access_type == TRACE_INST_LOAD){
-                        temp->dirty = FALSE;
-                    }
-                    else if(access_type == TRACE_DATA_STORE){
+                    temp->dirty = FALSE;
+                    if(access_type == TRACE_DATA_STORE){
                         temp->dirty = TRUE; 
                     }
                     
@@ -327,12 +323,10 @@ void access_cache(c, addr, access_type)
                     if (access_type == TRACE_DATA_LOAD || access_type == TRACE_DATA_STORE){
                         cache_stat_data.misses += 1;
                         cache_stat_data.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                        c.set_contents[index] += 1;
                     }
                     else if(access_type == TRACE_INST_LOAD) {
                         cache_stat_inst.misses += 1;
                         cache_stat_inst.demand_fetches += 1 * cache_block_size / (WORD_SIZE);
-                        c.set_contents[index] += 1;
                     }
                 }
             }
